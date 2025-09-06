@@ -5,6 +5,11 @@
 
 import { GoogleGenAI, GenerateContentResponse, Modality } from "@google/genai";
 
+// Fail fast with a clear error message if the API key is not configured.
+if (!process.env.API_KEY) {
+    throw new Error("ไม่ได้ตั้งค่าตัวแปรสภาพแวดล้อม API_KEY กรุณาตรวจสอบให้แน่ใจว่าได้กำหนดค่าในสภาพแวดล้อมของแอปพลิเคชันของคุณแล้ว");
+}
+
 // Helper function to convert a File object to a Gemini API Part
 const fileToPart = async (file: File): Promise<{ inlineData: { mimeType: string; data: string; } }> => {
     const dataUrl = await new Promise<string>((resolve, reject) => {
