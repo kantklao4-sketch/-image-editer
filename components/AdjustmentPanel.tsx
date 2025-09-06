@@ -4,7 +4,8 @@
 */
 
 import React, { useState, useEffect } from 'react';
-import { UploadIcon } from './icons';
+import PromptInput from './PromptInput';
+import { UploadIcon, PlusCircleIcon, TrashIcon } from './icons';
 
 interface AdjustmentPanelProps {
   onApplyAdjustment: (prompt: string) => void;
@@ -14,10 +15,39 @@ interface AdjustmentPanelProps {
   onClearSecondaryImage: () => void;
 }
 
+const LOCAL_STORAGE_KEY = 'pixshop_saved_adjustment_presets';
+
+const adjustmentSuggestions = [
+    'เบลอพื้นหลัง',
+    'เปลี่ยนพื้นหลังเป็นชายหาด',
+    'เปลี่ยนพื้นหลังเป็นภูเขาหิมะ',
+    'เพิ่มแสงแดดยามเช้า',
+    'ทำให้ภาพคมชัดขึ้น',
+    'ลบวัตถุที่ไม่ต้องการ',
+    'เปลี่ยนสีเสื้อเป็นสีแดง',
+    'ปรับโทนสีให้อบอุ่นเหมือนฟิล์ม',
+    'เพิ่มเอฟเฟกต์แสงโบเก้',
+    'ทำให้ท้องฟ้าดูน่าทึ่งขึ้น',
+    'จัดแสงแบบสตูดิโอ'
+];
+
+
 const AdjustmentPanel: React.FC<AdjustmentPanelProps> = ({ onApplyAdjustment, isLoading, secondaryImage, onSecondaryImageUpload, onClearSecondaryImage }) => {
   const [selectedPresetPrompt, setSelectedPresetPrompt] = useState<string | null>(null);
   const [customPrompt, setCustomPrompt] = useState('');
   const [secondaryImageUrl, setSecondaryImageUrl] = useState<string | null>(null);
+  const [savedPresets, setSavedPresets] = useState<string[]>([]);
+
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem(LOCAL_STORAGE_KEY);
+      if (saved) {
+        setSavedPresets(JSON.parse(saved));
+      }
+    } catch (error) {
+      console.error("Failed to load saved adjustment presets:", error);
+    }
+  }, []);
 
   useEffect(() => {
     if (secondaryImage) {
@@ -43,8 +73,8 @@ const AdjustmentPanel: React.FC<AdjustmentPanelProps> = ({ onApplyAdjustment, is
     setCustomPrompt('');
   };
 
-  const handleCustomChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setCustomPrompt(e.target.value);
+  const handleCustomChange = (value: string) => {
+    setCustomPrompt(value);
     setSelectedPresetPrompt(null);
   };
   
@@ -55,6 +85,33 @@ const AdjustmentPanel: React.FC<AdjustmentPanelProps> = ({ onApplyAdjustment, is
     e.target.value = ''; // Reset file input
   };
 
+  const updateAndSavePresets = (updatedPresets: string[]) => {
+    setSavedPresets(updatedPresets);
+    try {
+        localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(updatedPresets));
+    } catch (error) {
+        console.error("Failed to save presets to localStorage:", error);
+    }
+  };
+  
+  const handleSavePreset = () => {
+    const trimmedPrompt = customPrompt.trim();
+    if (trimmedPrompt && !savedPresets.includes(trimmedPrompt)) {
+      const updatedPresets = [...savedPresets, trimmedPrompt];
+      updateAndSavePresets(updatedPresets);
+      setCustomPrompt('');
+    }
+  };
+
+  const handleDeletePreset = (presetToDelete: string) => {
+    const updatedPresets = savedPresets.filter(p => p !== presetToDelete);
+    updateAndSavePresets(updatedPresets);
+    if (selectedPresetPrompt === presetToDelete) {
+        setSelectedPresetPrompt(null);
+    }
+  };
+
+
   const handleApply = () => {
     if (activePrompt || secondaryImage) {
       onApplyAdjustment(activePrompt);
@@ -62,7 +119,7 @@ const AdjustmentPanel: React.FC<AdjustmentPanelProps> = ({ onApplyAdjustment, is
   };
 
   return (
-    <div className="w-full bg-gray-800/50 border border-gray-700 rounded-lg p-4 flex flex-col gap-4 animate-fade-in backdrop-blur-sm">
+    <div className="w-full bg-gray-800/50 border border-gray-700 rounded-lg p-4 flex flex-col gap-4 animate-tool-panel backdrop-blur-sm">
       <h3 className="text-lg font-semibold text-center text-gray-300">ปรับแต่งภาพระดับมืออาชีพ</h3>
       
       <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
@@ -103,22 +160,59 @@ const AdjustmentPanel: React.FC<AdjustmentPanelProps> = ({ onApplyAdjustment, is
           </label>
         )}
       </div>
+      
+      {savedPresets.length > 0 && (
+        <div className="w-full pt-2">
+            <h4 className="text-base font-semibold text-center text-gray-400 mb-2">การปรับแต่งที่บันทึกไว้</h4>
+            <div className="flex flex-wrap gap-2 justify-center">
+            {savedPresets.map(preset => (
+                <div key={preset} className="relative group">
+                    <button
+                        onClick={() => handlePresetClick(preset)}
+                        disabled={isLoading}
+                        className={`text-center bg-white/5 border border-transparent text-gray-300 font-medium py-2 pl-4 pr-8 rounded-md transition-all duration-200 ease-in-out hover:bg-white/15 hover:border-white/10 active:scale-95 text-sm disabled:opacity-50 disabled:cursor-not-allowed ${selectedPresetPrompt === preset ? 'ring-2 ring-offset-2 ring-offset-gray-800 ring-blue-500' : ''}`}
+                    >
+                        {preset}
+                    </button>
+                    <button
+                        onClick={() => handleDeletePreset(preset)}
+                        disabled={isLoading}
+                        className="absolute top-1/2 right-1 -translate-y-1/2 p-1 text-gray-500 rounded-full opacity-0 group-hover:opacity-100 hover:bg-red-500/20 hover:text-red-300 transition-all disabled:opacity-0"
+                        aria-label={`ลบการปรับแต่ง ${preset}`}
+                    >
+                        <TrashIcon className="w-4 h-4" />
+                    </button>
+                </div>
+            ))}
+            </div>
+        </div>
+        )}
 
-      <input
-        type="text"
-        value={customPrompt}
-        onChange={handleCustomChange}
-        placeholder="หรืออธิบายการปรับแต่ง (เช่น 'เปลี่ยนพื้นหลังเป็นป่า')"
-        className="flex-grow bg-gray-800 border border-gray-600 text-gray-200 rounded-lg p-4 focus:ring-2 focus:ring-blue-500 focus:outline-none transition w-full disabled:cursor-not-allowed disabled:opacity-60 text-base"
-        disabled={isLoading}
-      />
+      <div className="flex items-center gap-2">
+        <PromptInput
+            value={customPrompt}
+            onChange={handleCustomChange}
+            placeholder="หรืออธิบายการปรับแต่ง (เช่น 'เปลี่ยนพื้นหลังเป็นป่า')"
+            suggestions={adjustmentSuggestions}
+            disabled={isLoading}
+        />
+        <button 
+            onClick={handleSavePreset}
+            disabled={isLoading || !customPrompt.trim() || savedPresets.includes(customPrompt.trim())}
+            className="p-3 text-gray-400 rounded-lg transition-colors hover:bg-white/10 hover:text-white disabled:opacity-50 disabled:cursor-not-allowed"
+            aria-label="บันทึกการปรับแต่งที่กำหนดเอง"
+            title="บันทึกการปรับแต่งนี้"
+        >
+            <PlusCircleIcon className="w-7 h-7" />
+        </button>
+      </div>
 
       {(activePrompt || secondaryImage) && (
         <div className="animate-fade-in flex flex-col gap-4 pt-2">
             <button
                 onClick={handleApply}
                 className="w-full bg-gradient-to-br from-blue-600 to-blue-500 text-white font-bold py-4 px-6 rounded-lg transition-all duration-300 ease-in-out shadow-lg shadow-blue-500/20 hover:shadow-xl hover:shadow-blue-500/40 hover:-translate-y-px active:scale-95 active:shadow-inner text-base disabled:from-blue-800 disabled:to-blue-700 disabled:shadow-none disabled:cursor-not-allowed disabled:transform-none"
-                disabled={isLoading || (!activePrompt.trim() && !secondaryImage)}
+                disabled={isLoading || (!activePrompt?.trim() && !secondaryImage)}
             >
                 ใช้การปรับแต่งนี้
             </button>

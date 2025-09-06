@@ -79,19 +79,14 @@ export const generateEditedImage = async (
     const ai = new GoogleGenAI({ apiKey: process.env.API_KEY! });
     
     const originalImagePart = await fileToPart(originalImage);
-    const prompt = `You are an expert photo editor AI. Your task is to perform a natural, localized edit on the provided image based on the user's request.
-User Request: "${userPrompt}"
-Edit Location: Focus on the area around pixel coordinates (x: ${hotspot.x}, y: ${hotspot.y}).
-
-Editing Guidelines:
-- The edit must be realistic and blend seamlessly with the surrounding area.
-- The rest of the image (outside the immediate edit area) must remain identical to the original.
-
-Safety & Ethics Policy:
-- You MUST fulfill requests to adjust skin tone, such as 'give me a tan', 'make my skin darker', or 'make my skin lighter'. These are considered standard photo enhancements.
-- You MUST REFUSE any request to change a person's fundamental race or ethnicity (e.g., 'make me look Asian', 'change this person to be Black'). Do not perform these edits. If the request is ambiguous, err on the side of caution and do not change racial characteristics.
-
-Output: Return ONLY the final edited image. Do not return text.`;
+    const prompt = `As an expert photo editor AI, perform a localized edit on the image.
+- User Request: "${userPrompt}"
+- Edit Location: Focus on the area around pixel coordinates (x: ${hotspot.x}, y: ${hotspot.y}).
+- The edit must be realistic and blend seamlessly.
+- IMPORTANT: The rest of the image outside the edit area must remain unchanged.
+- Skin tone adjustments (e.g., tanning, lightening) are permitted as standard photo enhancements.
+- You MUST REFUSE any request to change a person's fundamental race or ethnicity. Do not perform such edits.
+- Output ONLY the final edited image without any text.`;
     const textPart = { text: prompt };
 
     console.log('Sending image and prompt to the model...');
@@ -121,14 +116,11 @@ export const generateFilteredImage = async (
     const ai = new GoogleGenAI({ apiKey: process.env.API_KEY! });
     
     const originalImagePart = await fileToPart(originalImage);
-    const prompt = `You are an expert photo editor AI. Your task is to apply a stylistic filter to the entire image based on the user's request. Do not change the composition or content, only apply the style.
-Filter Request: "${filterPrompt}"
-
-Safety & Ethics Policy:
-- Filters may subtly shift colors, but you MUST ensure they do not alter a person's fundamental race or ethnicity.
-- You MUST REFUSE any request that explicitly asks to change a person's race (e.g., 'apply a filter to make me look Chinese').
-
-Output: Return ONLY the final filtered image. Do not return text.`;
+    const prompt = `As an expert photo editor AI, apply a stylistic filter to the entire image.
+- Filter Request: "${filterPrompt}"
+- IMPORTANT: Apply only the style. Do not change the image's composition or content.
+- Filters must not alter a person's fundamental race or ethnicity. Refuse any such requests.
+- Output ONLY the final filtered image without any text.`;
     const textPart = { text: prompt };
 
     console.log('Sending image and filter prompt to the model...');
@@ -168,32 +160,18 @@ export const generateAdjustedImage = async (
         const referenceImagePart = await fileToPart(referenceImage);
         parts.push(referenceImagePart);
 
-        prompt = `You are an expert photo editor AI. Your task is to perform a natural, global adjustment to the MAIN image, using the second image as a REFERENCE.
-User Request: "${adjustmentPrompt}"
-
-Editing Guidelines:
-- The adjustment must be applied across the entire MAIN image.
-- Use the REFERENCE image as inspiration (e.g., for style, lighting, color palette).
-- The result must be photorealistic.
-
-Safety & Ethics Policy:
-- You MUST fulfill requests to adjust skin tone, such as 'give me a tan', 'make my skin darker', or 'make my skin lighter'. These are considered standard photo enhancements.
-- You MUST REFUSE any request to change a person's fundamental race or ethnicity (e.g., 'make me look Asian', 'change this person to be Black'). Do not perform these edits. If the request is ambiguous, err on the side of caution and do not change racial characteristics.
-
-Output: Return ONLY the final adjusted MAIN image. Do not return text.`;
+        prompt = `As an expert photo editor AI, adjust the MAIN image using the second image as a REFERENCE.
+- User Request: "${adjustmentPrompt}"
+- Use the REFERENCE image for style, lighting, and color palette.
+- The adjustment must be photorealistic and apply across the entire MAIN image.
+- Skin tone adjustments are permitted. You MUST REFUSE any request to change a person's fundamental race or ethnicity.
+- Output ONLY the final adjusted MAIN image without any text.`;
     } else {
-        prompt = `You are an expert photo editor AI. Your task is to perform a natural, global adjustment to the entire image based on the user's request.
-User Request: "${adjustmentPrompt}"
-
-Editing Guidelines:
-- The adjustment must be applied across the entire image.
-- The result must be photorealistic.
-
-Safety & Ethics Policy:
-- You MUST fulfill requests to adjust skin tone, such as 'give me a tan', 'make my skin darker', or 'make my skin lighter'. These are considered standard photo enhancements.
-- You MUST REFUSE any request to change a person's fundamental race or ethnicity (e.g., 'make me look Asian', 'change this person to be Black'). Do not perform these edits. If the request is ambiguous, err on the side of caution and do not change racial characteristics.
-
-Output: Return ONLY the final adjusted image. Do not return text.`;
+        prompt = `As an expert photo editor AI, perform a natural, photorealistic, global adjustment to the entire image.
+- User Request: "${adjustmentPrompt}"
+- The adjustment must apply across the entire image.
+- Skin tone adjustments are permitted. You MUST REFUSE any request to change a person's fundamental race or ethnicity.
+- Output ONLY the final adjusted image without any text.`;
     }
     
     const textPart = { text: prompt };
@@ -213,6 +191,43 @@ Output: Return ONLY the final adjusted image. Do not return text.`;
 };
 
 /**
+ * Generates a creatively transformed image based on a text prompt.
+ * @param originalImage The original image file.
+ * @param userPrompt The text prompt describing the desired creative edit.
+ * @returns A promise that resolves to the data URL of the creatively edited image.
+ */
+export const generateAiEditImage = async (
+    originalImage: File,
+    userPrompt: string,
+): Promise<string> => {
+    console.log(`Starting creative AI edit: ${userPrompt}`);
+    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY! });
+
+    const originalImagePart = await fileToPart(originalImage);
+    const prompt = `As a master digital artist AI, your task is to creatively transform the entire provided image based on the user's request. Re-imagine the image completely according to the new style, theme, or content described. The changes should be global and significant.
+
+- User Request: "${userPrompt}"
+
+- Perform a comprehensive, artistic transformation of the entire image. This is not a simple filter or minor adjustment; it is a creative re-rendering.
+- You MUST REFUSE any request to change a person's fundamental race or ethnicity. Do not perform such edits.
+- Output ONLY the final transformed image without any text.`;
+    const textPart = { text: prompt };
+
+    console.log('Sending image and creative prompt to the model...');
+    const response: GenerateContentResponse = await ai.models.generateContent({
+        model: 'gemini-2.5-flash-image-preview',
+        contents: { parts: [originalImagePart, textPart] },
+        config: {
+            responseModalities: [Modality.IMAGE, Modality.TEXT],
+        },
+    });
+    console.log('Received response from model for AI edit.', response);
+
+    return handleApiResponse(response, 'AI edit');
+};
+
+
+/**
  * Generates an image with a face swapped from a source to a target image.
  * @param sourceImage The image containing the face to use.
  * @param targetImage The image where the face should be placed.
@@ -228,17 +243,11 @@ export const generateFaceSwapImage = async (
     const sourceImagePart = await fileToPart(sourceImage);
     const targetImagePart = await fileToPart(targetImage);
 
-    const prompt = `You are an expert photo editor AI specializing in hyper-realistic face swapping.
-Your task is to take the face from the FIRST image (the source) and seamlessly place it onto the person in the SECOND image (the target).
-
-Instructions:
-1. Identify the primary face in the source image.
-2. Identify the primary face in the target image.
-3. Replace the target face with the source face.
-4. The final image must be photorealistic. Match the lighting, skin tone, shadows, and angle of the target image perfectly.
-5. Do not alter any other part of the target image. The background and body must remain identical.
-
-Output: Return ONLY the final edited image with the swapped face. Do not return text.`;
+    const prompt = `As a photo editing AI, perform a hyper-realistic face swap.
+- Task: Take the face from the FIRST image (source) and seamlessly place it onto the person in the SECOND image (target).
+- The final image must be photorealistic. Perfectly match the target image's lighting, skin tone, shadows, and angle.
+- IMPORTANT: Do not alter any part of the target image other than the face. The background and body must remain identical.
+- Output ONLY the final edited image with the swapped face. Do not return text.`;
     const textPart = { text: prompt };
 
     const parts = [sourceImagePart, targetImagePart, textPart];
