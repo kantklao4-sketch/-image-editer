@@ -29,6 +29,36 @@ const fileToPart = async (file: File): Promise<{ inlineData: { mimeType: string;
     return { inlineData: { mimeType, data } };
 };
 
+// Centralized API call helper with specific error handling
+const callGeminiApi = async (params: {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    contents: any;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    config: any;
+}): Promise<GenerateContentResponse> => {
+    try {
+        const ai = new GoogleGenAI({ apiKey: process.env.API_KEY! });
+        return await ai.models.generateContent({
+            model: 'gemini-2.5-flash-image-preview',
+            ...params
+        });
+    } catch (error) {
+        console.error("Gemini API call failed:", error);
+        
+        const errorString = error instanceof Error ? error.message : JSON.stringify(error);
+
+        if (errorString.includes("API_KEY_INVALID") || errorString.includes("API key not valid")) {
+            throw new Error(
+                "API Key ไม่ถูกต้อง กรุณาตรวจสอบให้แน่ใจว่า API Key ที่ตั้งค่าในสภาพแวดล้อมของคุณถูกต้องและเปิดใช้งานแล้ว"
+            );
+        }
+        
+        // Rethrow original error for other issues
+        throw error;
+    }
+};
+
+
 const handleApiResponse = (
     response: GenerateContentResponse,
     context: string // e.g., "edit", "filter", "adjustment"
@@ -81,8 +111,6 @@ export const generateEditedImage = async (
     hotspot: { x: number, y: number }
 ): Promise<string> => {
     console.log('Starting generative edit at:', hotspot);
-    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY! });
-    
     const originalImagePart = await fileToPart(originalImage);
     const prompt = `As an expert photo editor AI, perform a localized edit on the image.
 - User Request: "${userPrompt}"
@@ -95,8 +123,7 @@ export const generateEditedImage = async (
     const textPart = { text: prompt };
 
     console.log('Sending image and prompt to the model...');
-    const response: GenerateContentResponse = await ai.models.generateContent({
-        model: 'gemini-2.5-flash-image-preview',
+    const response = await callGeminiApi({
         contents: { parts: [originalImagePart, textPart] },
         config: {
             responseModalities: [Modality.IMAGE, Modality.TEXT],
@@ -118,8 +145,6 @@ export const generateFilteredImage = async (
     filterPrompt: string,
 ): Promise<string> => {
     console.log(`Starting filter generation: ${filterPrompt}`);
-    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY! });
-    
     const originalImagePart = await fileToPart(originalImage);
     const prompt = `As an expert photo editor AI, apply a stylistic filter to the entire image.
 - Filter Request: "${filterPrompt}"
@@ -129,8 +154,7 @@ export const generateFilteredImage = async (
     const textPart = { text: prompt };
 
     console.log('Sending image and filter prompt to the model...');
-    const response: GenerateContentResponse = await ai.models.generateContent({
-        model: 'gemini-2.5-flash-image-preview',
+    const response = await callGeminiApi({
         contents: { parts: [originalImagePart, textPart] },
         config: {
             responseModalities: [Modality.IMAGE, Modality.TEXT],
@@ -154,7 +178,6 @@ export const generateAdjustedImage = async (
     referenceImage: File | null,
 ): Promise<string> => {
     console.log(`Starting global adjustment generation: ${adjustmentPrompt}`, { hasReference: !!referenceImage });
-    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY! });
     
     const originalImagePart = await fileToPart(originalImage);
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -183,8 +206,7 @@ export const generateAdjustedImage = async (
     parts.push(textPart);
 
     console.log('Sending image(s) and adjustment prompt to the model...');
-    const response: GenerateContentResponse = await ai.models.generateContent({
-        model: 'gemini-2.5-flash-image-preview',
+    const response = await callGeminiApi({
         contents: { parts: parts },
         config: {
             responseModalities: [Modality.IMAGE, Modality.TEXT],
@@ -206,8 +228,6 @@ export const generateAiEditImage = async (
     userPrompt: string,
 ): Promise<string> => {
     console.log(`Starting creative AI edit: ${userPrompt}`);
-    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY! });
-
     const originalImagePart = await fileToPart(originalImage);
     const prompt = `As a master digital artist AI, your task is to creatively transform the entire provided image based on the user's request. Re-imagine the image completely according to the new style, theme, or content described. The changes should be global and significant.
 
@@ -219,8 +239,7 @@ export const generateAiEditImage = async (
     const textPart = { text: prompt };
 
     console.log('Sending image and creative prompt to the model...');
-    const response: GenerateContentResponse = await ai.models.generateContent({
-        model: 'gemini-2.5-flash-image-preview',
+    const response = await callGeminiApi({
         contents: { parts: [originalImagePart, textPart] },
         config: {
             responseModalities: [Modality.IMAGE, Modality.TEXT],
@@ -243,8 +262,6 @@ export const generateFaceSwapImage = async (
     targetImage: File,
 ): Promise<string> => {
     console.log(`Starting face swap...`);
-    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY! });
-
     const sourceImagePart = await fileToPart(sourceImage);
     const targetImagePart = await fileToPart(targetImage);
 
@@ -258,8 +275,7 @@ export const generateFaceSwapImage = async (
     const parts = [sourceImagePart, targetImagePart, textPart];
 
     console.log('Sending images and face swap prompt to the model...');
-    const response: GenerateContentResponse = await ai.models.generateContent({
-        model: 'gemini-2.5-flash-image-preview',
+    const response = await callGeminiApi({
         contents: { parts: parts },
         config: {
             responseModalities: [Modality.IMAGE, Modality.TEXT],
